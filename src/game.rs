@@ -1,33 +1,53 @@
+use circle::Circle;
 use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+mod circle;
 
 const WINDOW_WIDTH: i32 = 640;
 const WINDOW_HEIGHT: i32 = 480;
 const FPS: u32 = 60;
 
 pub struct Game {
-    rl: RaylibHandle,
+    rl: Rc<RefCell<RaylibHandle>>,
     thread: RaylibThread,
+    circles: Vec<Circle>,
 }
 
 impl Game {
     pub fn new() -> Self {
-        let (mut r, t) = raylib::init().build();
+        let (rh, thread) = raylib::init().build();
 
-        r.set_target_fps(FPS);
-        r.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT);
-        r.set_exit_key(Some(KEY_ESCAPE));
+        let circle1 = Circle::new(100, 100, 50);
+        let circle2 = Circle::new(200, 150, 30);
 
-        Game { rl: r, thread: t }
+        let game = Game {
+            rl: Rc::new(RefCell::new(rh)),
+            thread,
+            circles: vec![circle1, circle2],
+        };
+
+        let rh = game.rl.clone();
+        let mut rh = rh.borrow_mut();
+
+        rh.set_target_fps(FPS);
+        rh.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT);
+        rh.set_exit_key(Some(KEY_ESCAPE));
+
+        game
     }
 
     pub fn update(&self) {}
 
     pub fn draw(&mut self) {
-        let mut d = self.rl.begin_drawing(&self.thread);
+        let mut rh = self.rl.borrow_mut();
+        let mut d = rh.begin_drawing(&self.thread);
         d.clear_background(Color::BLACK);
 
-        d.draw_circle(100, 100, 50.0, Color::GREEN);
+        self.circles[0].draw(&mut d);
+        self.circles[1].draw(&mut d);
+
         d.draw_text(
             "Press ESC to exit",
             20,
@@ -38,6 +58,7 @@ impl Game {
     }
 
     pub fn has_finished(&self) -> bool {
-        self.rl.window_should_close()
+        let rh = self.rl.borrow();
+        rh.window_should_close()
     }
 }
